@@ -3,7 +3,7 @@
 # ==========================================
 # KONFIGURASI UTAMA
 # ==========================================
-APT_LOCAL_VERSION="1.2.0" # Diperbarui: Fitur Resolusi Dependensi Otomatis
+APT_LOCAL_VERSION="0.0.01-beta" # Diperbarui: Fitur Resolusi Dependensi Otomatis
 
 # ==========================================
 # KONFIGURASI DIREKTORI, LOG, & WARNA
