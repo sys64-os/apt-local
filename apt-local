@@ -242,7 +242,7 @@ elif [ "$COMMAND" == "update" ]; then
     exit 0
 
 # ==========================================
-# BLOK PERINTAH: SEARCH
+# BLOK PERINTAH: SEARCH (Revisi)
 # ==========================================
 elif [ "$COMMAND" == "search" ]; then
     if [ ${#PACKAGES[@]} -eq 0 ]; then
@@ -254,10 +254,13 @@ elif [ "$COMMAND" == "search" ]; then
     echo "🔍 Mencari paket dengan kata kunci: '$KEYWORD'..."
     echo -e "${CYAN}--------------------------------------------------${NC}"
     
-    apt-cache -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
-              -o Dir::Etc::sourceparts="-" \
-              -o Dir::State::Lists="$LOCAL_LISTS" \
-              search "$KEYWORD"
+    # Menggunakan 'apt search' (bukan apt-cache) untuk output multi-baris
+    # Menyertakan repo, versi, arsitektur, dan deskripsi di baris bawahnya.
+    # sed digunakan untuk membersihkan teks bawaan "Sorting..." dan "Full Text Search..."
+    apt -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
+        -o Dir::Etc::sourceparts="-" \
+        -o Dir::State::Lists="$LOCAL_LISTS" \
+        search "$KEYWORD" 2>/dev/null | sed -e '/^Sorting/d' -e '/^Full Text Search/d'
               
     echo -e "${CYAN}--------------------------------------------------${NC}"
     exit 0
