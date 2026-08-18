@@ -49,13 +49,13 @@ Saat pertama kali dijalankan, script akan membuat file konfigurasi secara otomat
 Anda dapat mengedit file ini untuk mengatur Whitelist dan Blacklist.
 Ini, TOML
 
-    # 1. Daftar Izin (Whitelist)
-    # Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
-    whitelist=*
-
-    # 2. Daftar Blokir (Blacklist)
-    # Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
-    blacklist=[gcc, g++, make, libc6, systemd, apt, dpkg, docker.io, dll...]
+> # 1. Daftar Izin (Whitelist)
+> # Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
+> whitelist=*
+> 
+> # 2. Daftar Blokir (Blacklist)
+> # Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
+> blacklist=[gcc, g++, make, libc6, systemd, apt, dpkg, docker.io, dll...]
 
 🛠️ Persiapan Environment (Penting!)
 
@@ -71,18 +71,18 @@ Script akan mengecek kelengkapan $PATH, $LD_LIBRARY_PATH, dan $XDG_DATA_DIRS. Ji
 
 Semua aktivitas apt-local terisolasi pada folder ~/.local.
 
-    ~/.local/bin & ~/.local/usr/bin : Tempat aplikasi (.exe/binary) berada.
+> ~/.local/bin & ~/.local/usr/bin : Tempat aplikasi (.exe/binary) berada.
+> 
+> ~/.local/usr/lib : Tempat library (.so) berada.
+> 
+> ~/.local/var/lib/apt-local/deb-install : Tempat file tracking instalasi (.conf).
 
-    ~/.local/usr/lib : Tempat library (.so) berada.
-
-    ~/.local/var/lib/apt-local/deb-install : Tempat file tracking instalasi (.conf).
-
-    ~/.local/tmp/apt-local : Folder temporary untuk mengunduh .deb sebelum diekstrak.
+> ~/.local/tmp/apt-local : Folder temporary untuk mengunduh .deb sebelum diekstrak.
 
 ⚠️ Peringatan & Keterbatasan
 
-    Bukan Pengganti APT Asli: Script ini menggunakan dpkg -x (ekstrak) dan tidak menjalankan skrip pre/post instalasi (preinst/postinst) dari paket Debian. Paket yang membutuhkan setup daemon atau system service mungkin tidak berjalan sempurna.
-
-    Kompabilitas C-Library: Jika paket yang Anda instal membutuhkan versi libc6 yang lebih baru dari yang ada di OS Utama (Host), aplikasi tersebut mungkin akan mengalami Segmentation Fault.
+> Bukan Pengganti APT Asli: Script ini menggunakan dpkg -x (ekstrak) dan tidak menjalankan skrip pre/post instalasi (preinst/postinst) dari paket Debian. Paket > yang membutuhkan setup daemon atau system service mungkin tidak berjalan sempurna.
+> 
+> Kompabilitas C-Library: Jika paket yang Anda instal membutuhkan versi libc6 yang lebih baru dari yang ada di OS Utama (Host), aplikasi tersebut mungkin akan mengalami Segmentation Fault.
 
 Lisensi: MIT License (Gunakan dengan risiko ditanggung sendiri).
