@@ -59,17 +59,18 @@ Ini, TOML
 
 🛠️ Persiapan Environment (Penting!)
 
-Agar aplikasi yang diinstal di ~/.local dapat berjalan normal (terbaca sistem dan library-nya terhubung), Anda harus mengatur Environment Variables.
+Agar aplikasi yang diinstal di `~/.local` dapat berjalan normal (terbaca sistem dan library-nya terhubung), Anda harus mengatur Environment Variables.
 
 Cukup jalankan perintah:
 Bash
 
-apt-local env
+    apt-local env
 
-Script akan mengecek kelengkapan $PATH, $LD_LIBRARY_PATH, dan $XDG_DATA_DIRS. Jika ada yang kurang, script akan menawarkan untuk menambahkannya ke ~/.bashrc Anda secara otomatis.
+Script akan mengecek kelengkapan `$PATH, $LD_LIBRARY_PATH, dan $XDG_DATA_DIRS`. Jika ada yang kurang, script akan menawarkan untuk menambahkannya ke `~/.bashrc` Anda secara otomatis.
+
 📂 Struktur Direktori
 
-Semua aktivitas apt-local terisolasi pada folder ~/.local.
+Semua aktivitas apt-local terisolasi pada folder `~/.local`.
 
 > ~/.local/bin & ~/.local/usr/bin : Tempat aplikasi (.exe/binary) berada.
 > 
@@ -85,4 +86,4 @@ Semua aktivitas apt-local terisolasi pada folder ~/.local.
 > 
 > Kompabilitas C-Library: Jika paket yang Anda instal membutuhkan versi libc6 yang lebih baru dari yang ada di OS Utama (Host), aplikasi tersebut mungkin akan mengalami Segmentation Fault.
 
-Lisensi: MIT License (Gunakan dengan risiko ditanggung sendiri).
+`Lisensi: MIT License (Gunakan dengan risiko ditanggung sendiri).`
