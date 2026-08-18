@@ -22,4 +22,15 @@ Script ini sangat berguna untuk pengguna *Shared Hosting*, *Container*, atau *No
 1. Unduh atau salin script `apt-local` ke server/komputer Anda.
 2. Beri hak akses eksekusi pada script:
    ```bash
-   chmod +x apt-local
+    chmod +x apt-local
+3. Pindahkan script ke folder bin lokal agar bisa dipanggil dari mana saja (opsional):Bashmkdir -p ~/.local/bin
+mv apt-local ~/.local/bin/
+Tambahkan ~/.local/bin ke $PATH Anda (jika belum ada).📖 Panduan PenggunaanGunakan perintah selayaknya menggunakan apt pada umumnya.PerintahDeskripsiContohupdateMemperbarui daftar repositori ke direktori lokalapt-local updatesearchMencari paket yang tersedia beserta versinyaapt-local search htopinstallMengunduh, mengekstrak, dan memasang paketapt-local install htop nanoremoveMenghapus paket yang sebelumnya diinstal oleh apt-localapt-local remove htoplistMenampilkan seluruh paket di repoapt-local listlist --installedMenampilkan paket yang sudah diinstal di lokalapt-local list --installedenvCek status & pasang Environment Variable ($PATH, dll)apt-local env⚙️ Konfigurasi (apt-local.conf)Saat pertama kali dijalankan, script akan membuat file konfigurasi secara otomatis di ~/.local/etc/apt-local/apt-local.conf.Anda dapat mengedit file ini untuk mengatur Whitelist dan Blacklist.Ini, TOML# 1. Daftar Izin (Whitelist)
+# Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
+whitelist=*
+
+# 2. Daftar Blokir (Blacklist)
+# Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
+blacklist=[gcc, g++, make, libc6, systemd, apt, dpkg, docker.io, dll...]
+🛠️ Persiapan Environment (Penting!)Agar aplikasi yang diinstal di ~/.local dapat berjalan normal (terbaca sistem dan library-nya terhubung), Anda harus mengatur Environment Variables.Cukup jalankan perintah:Bashapt-local env
+Script akan mengecek kelengkapan $PATH, $LD_LIBRARY_PATH, dan $XDG_DATA_DIRS. Jika ada yang kurang, script akan menawarkan untuk menambahkannya ke ~/.bashrc Anda secara otomatis.📂 Struktur DirektoriSemua aktivitas apt-local terisolasi pada folder ~/.local.~/.local/bin & ~/.local/usr/bin : Tempat aplikasi (.exe/binary) berada.~/.local/usr/lib : Tempat library (.so) berada.~/.local/var/lib/apt-local/deb-install : Tempat file tracking instalasi (.conf).~/.local/tmp/apt-local : Folder temporary untuk mengunduh .deb sebelum diekstrak.⚠️ Peringatan & KeterbatasanBukan Pengganti APT Asli: Script ini menggunakan dpkg -x (ekstrak) dan tidak menjalankan skrip pre/post instalasi (preinst/postinst) dari paket Debian. Paket yang membutuhkan setup daemon atau system service mungkin tidak berjalan sempurna.Kompabilitas C-Library: Jika paket yang Anda instal membutuhkan versi libc6 yang lebih baru dari yang ada di OS Utama (Host), aplikasi tersebut mungkin akan mengalami Segmentation Fault.Lisensi: MIT License (Gunakan dengan risiko ditanggung sendiri).
