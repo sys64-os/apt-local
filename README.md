@@ -49,12 +49,12 @@ Saat pertama kali dijalankan, script akan membuat file konfigurasi secara otomat
 Anda dapat mengedit file ini untuk mengatur Whitelist dan Blacklist.
 Ini, TOML
 
-> # 1. Daftar Izin (Whitelist)
-> # Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
+> 1. Daftar Izin (Whitelist)
+> Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
 > whitelist=*
 > 
-> # 2. Daftar Blokir (Blacklist)
-> # Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
+> 2. Daftar Blokir (Blacklist)
+> Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
 > blacklist=[gcc, g++, make, libc6, systemd, apt, dpkg, docker.io, dll...]
 
 🛠️ Persiapan Environment (Penting!)
