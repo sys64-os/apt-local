@@ -3,7 +3,7 @@
 # ==========================================
 # KONFIGURASI UTAMA
 # ==========================================
-APT_LOCAL_VERSION="1.1.0" # Diperbarui untuk penambahan fitur search & list --installed
+APT_LOCAL_VERSION="1.2.0" # Diperbarui: Fitur Resolusi Dependensi Otomatis
 
 # ==========================================
 # KONFIGURASI DIREKTORI, LOG, & WARNA
@@ -143,11 +143,9 @@ if [ "$COMMAND" == "help" ] || [ "$COMMAND" == "-h" ] || [ "$COMMAND" == "--help
     echo -e "${YELLOW}Perintah yang Tersedia:${NC}"
     echo -e "  ${GREEN}update${NC}   : Memperbarui daftar paket dari repositori sistem."
     echo -e "  ${GREEN}search${NC}   : Mencari paket yang tersedia berdasarkan kata kunci."
-    echo -e "             Contoh: ${CYAN}apt-local search htop${NC}"
-    echo -e "  ${GREEN}install${NC}  : Mengunduh dan memasang paket ke direktori lokal."
+    echo -e "  ${GREEN}install${NC}  : Mengunduh dan memasang paket (beserta dependensinya)."
     echo -e "             Contoh: ${CYAN}apt-local install htop nano${NC}"
     echo -e "  ${GREEN}remove${NC}   : Menghapus paket yang sebelumnya diinstal oleh apt-local."
-    echo -e "             Contoh: ${CYAN}apt-local remove htop${NC}"
     echo -e "  ${GREEN}list${NC}     : Menampilkan semua daftar paket dari repositori."
     echo -e "             Gunakan ${CYAN}apt-local list --installed${NC} untuk paket lokal."
     echo -e "  ${GREEN}env${NC}      : Mengecek dan mengonfigurasi Environment Variable (\$PATH)."
@@ -313,9 +311,35 @@ elif [ "$COMMAND" == "install" ]; then
     declare -a VALID_DEBS
     declare -a VALID_PKGS
 
-    echo "🔍 Menyiapkan file dan menganalisis aturan (Whitelist & Blacklist)..."
+    echo -e "${CYAN}🔍 Menganalisis paket dan dependensi yang dibutuhkan...${NC}"
+    
+    # ---------------------------------------------------------
+    # FASE 0: RESOLUSI DEPENDENSI (DEPENDENCY CHECKING)
+    # ---------------------------------------------------------
+    # Menggunakan apt-get -s (simulate) untuk melihat apa yang akan diinstal.
+    # Ini akan secara cerdas mengabaikan dependensi yang sudah terinstal di OS Host utama Anda.
+    SIMULATION=$(apt-get -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
+            -o Dir::Etc::sourceparts="-" \
+            -o Dir::State::Lists="$LOCAL_LISTS" \
+            -s install "${PACKAGES[@]}" 2>/dev/null)
+            
+    # Ambil baris yang dimulai dengan "Inst" dan ekstrak nama paketnya di kolom kedua
+    RESOLVED_PACKAGES=($(echo "$SIMULATION" | grep "^Inst " | awk '{print $2}'))
+    
+    if [ ${#RESOLVED_PACKAGES[@]} -eq 0 ]; then
+        # Jika array kosong, fallback menggunakan paket asli (bisa jadi paket sudah ada di host
+        # tapi user memaksa ingin menginstalnya di lingkungan lokal)
+        RESOLVED_PACKAGES=("${PACKAGES[@]}")
+    else
+        echo -e "${GREEN}✅ Ditemukan total ${#RESOLVED_PACKAGES[@]} paket (termasuk dependensi).${NC}"
+    fi
 
-    for PACKAGE_NAME in "${PACKAGES[@]}"; do
+    echo "🔍 Menerapkan filter aturan (Whitelist & Blacklist)..."
+
+    # ---------------------------------------------------------
+    # FASE 1: FILTERING & UNDUH PAKET
+    # ---------------------------------------------------------
+    for PACKAGE_NAME in "${RESOLVED_PACKAGES[@]}"; do
         
         # --- ATURAN 1: WHITELIST ---
         WHITELIST_LINE=$(grep "^whitelist=" "$CONF_FILE" | head -n 1 | sed 's/whitelist=//' | xargs)
@@ -334,12 +358,13 @@ elif [ "$COMMAND" == "install" ]; then
             done
             
             if [ $IS_ALLOWED -eq 0 ]; then
-                echo -e "${YELLOW}⛔ DITOLAK: Paket '$PACKAGE_NAME' tidak diizinkan oleh opsi 'whitelist' di $CONF_FILE.${NC}"
+                echo -e "${YELLOW}⛔ DITOLAK: Paket '$PACKAGE_NAME' (mungkin dependensi) tidak diizinkan oleh opsi 'whitelist' di $CONF_FILE.${NC}"
                 continue
             fi
         fi
 
         # --- ATURAN 2: BLACKLIST ---
+        # Sangat penting agar dependensi tidak secara tidak sengaja menarik komponen inti OS (seperti libc6) ke ~/.local
         BLACKLIST_LINE=$(grep "^blacklist=" "$CONF_FILE" | head -n 1)
         if [ -n "$BLACKLIST_LINE" ]; then
             BLACKLIST_ITEMS=$(echo "$BLACKLIST_LINE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
@@ -391,7 +416,9 @@ elif [ "$COMMAND" == "install" ]; then
         exit 1
     fi
 
+    # ---------------------------------------------------------
     # FASE 2: MENAMPILKAN RINGKASAN
+    # ---------------------------------------------------------
     echo ""
     echo -e "${CYAN}==================================================${NC}"
     echo "📦 RINGKASAN RENCANA INSTALASI"
@@ -410,7 +437,7 @@ elif [ "$COMMAND" == "install" ]; then
         echo "   Jumlah File : $FILE_COUNT file akan dipasang"
         echo "   Lokasi File (Detail):"
         
-        echo "$RAW_PATHS" | head -n 5 | while read -r path_line; do
+        echo "$RAW_PATHS" | head -n 3 | while read -r path_line; do
             if [ -e "$path_line" ] || [ -L "$path_line" ]; then
                 echo -e "     - ${RED}$path_line (menimpa)${NC}"
             else
@@ -418,21 +445,23 @@ elif [ "$COMMAND" == "install" ]; then
             fi
         done
         
-        if [ "$FILE_COUNT" -gt 5 ]; then
-            REMAINING=$((FILE_COUNT - 5))
+        if [ "$FILE_COUNT" -gt 3 ]; then
+            REMAINING=$((FILE_COUNT - 3))
             echo "     ... (dan $REMAINING file lainnya tidak ditampilkan)"
         fi
         echo ""
     done
     echo -e "${CYAN}==================================================${NC}"
     
-    read -p "❓ Apakah Anda setuju untuk menginstal ${#VALID_PKGS[@]} paket di atas ke lokal? [Y/n] " CONFIRM
+    read -p "❓ Apakah Anda setuju untuk menginstal ${#VALID_PKGS[@]} paket (termasuk dependensi) ke lokal? [Y/n] " CONFIRM
     
     if [[ "$CONFIRM" =~ ^[Yy]$ ]] || [[ -z "$CONFIRM" ]]; then
         echo ""
         log_message "✅ Persetujuan diberikan oleh user."
         
+        # ---------------------------------------------------------
         # FASE 3: EKSTRAKSI & TRACKING
+        # ---------------------------------------------------------
         for i in "${!VALID_PKGS[@]}"; do
             PKG="${VALID_PKGS[$i]}"
             DEB="${VALID_DEBS[$i]}"
