@@ -44,7 +44,7 @@ Gunakan perintah selayaknya menggunakan `apt` pada umumnya.
 
 ⚙️ Konfigurasi (apt-local.conf)
 
-Saat pertama kali dijalankan, script akan membuat file konfigurasi secara otomatis di ~/.local/etc/apt-local/apt-local.conf.
+Saat pertama kali dijalankan, script akan membuat file konfigurasi secara otomatis di `~/.local/etc/apt-local/apt-local.conf`.
 
 Anda dapat mengedit file ini untuk mengatur Whitelist dan Blacklist.
 Ini, TOML
