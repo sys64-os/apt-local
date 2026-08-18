@@ -23,9 +23,10 @@ Script ini sangat berguna untuk pengguna *Shared Hosting*, *Container*, atau *No
 2. Beri hak akses eksekusi pada script:
    ```bash
     chmod +x apt-local
-3. Pindahkan script ke folder bin lokal agar bisa dipanggil dari mana saja (opsional):Bashmkdir -p ~/.local/bin
-mv apt-local ~/.local/bin/
-Tambahkan ~/.local/bin ke $PATH Anda (jika belum ada).
+3. Pindahkan script ke folder bin lokal agar bisa dipanggil dari mana saja (opsional):
+   ```bash
+   mkdir -p ~/.local/bin
+   mv apt-local ~/.local/bin/
 
 📖 Panduan Penggunaan
 
