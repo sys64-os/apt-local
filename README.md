@@ -30,14 +30,14 @@ Tambahkan ~/.local/bin ke $PATH Anda (jika belum ada).
 📖 Panduan Penggunaan
 
 Gunakan perintah selayaknya menggunakan apt pada umumnya.
-Perintah           Deskripsi                                               Contoh      
-update             Memperbarui daftar repositori ke direktori lokal        apt-local update
-search             Mencari paket yang tersedia beserta versinya            apt-local search htop
-install            Mengunduh, mengekstrak, dan memasang paket              apt-local install htop nano
-remove             Menghapus paket yang sebelumnya diinstal oleh apt-local apt-local remove htop
-list               Menampilkan seluruh paket di repo                       apt-local list
-list --installed   Menampilkan paket yang sudah diinstal di lokal          apt-local list --installed
-env                Cek status & pasang Environment Variable ($PATH, dll)   apt-local env
+    Perintah           Deskripsi                                               Contoh      
+    update             Memperbarui daftar repositori ke direktori lokal        apt-local update
+    search             Mencari paket yang tersedia beserta versinya            apt-local search htop
+    install            Mengunduh, mengekstrak, dan memasang paket              apt-local install htop nano
+    remove             Menghapus paket yang sebelumnya diinstal oleh apt-local apt-local remove htop
+    list               Menampilkan seluruh paket di repo                       apt-local list
+    list --installed   Menampilkan paket yang sudah diinstal di lokal          apt-local list --installed
+    env                Cek status & pasang Environment Variable ($PATH, dll)   apt-local env
 
 ⚙️ Konfigurasi (apt-local.conf)
 
