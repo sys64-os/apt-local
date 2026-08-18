@@ -30,9 +30,14 @@ Tambahkan ~/.local/bin ke $PATH Anda (jika belum ada).
 📖 Panduan Penggunaan
 
 Gunakan perintah selayaknya menggunakan apt pada umumnya.
-Perintah                Deskripsi                                               Contoh      
-update                  Memperbarui daftar repositori ke direktori lokal        apt-local update
-search  Mencari paket yang tersedia beserta versinyaapt-local search htopinstallMengunduh, mengekstrak, dan memasang paketapt-local install htop nanoremoveMenghapus paket yang sebelumnya diinstal oleh apt-localapt-local remove htoplistMenampilkan seluruh paket di repoapt-local listlist --installedMenampilkan paket yang sudah diinstal di lokalapt-local list --installedenvCek status & pasang Environment Variable ($PATH, dll)apt-local env
+Perintah           Deskripsi                                               Contoh      
+update             Memperbarui daftar repositori ke direktori lokal        apt-local update
+search             Mencari paket yang tersedia beserta versinya            apt-local search htop
+install            Mengunduh, mengekstrak, dan memasang paket              apt-local install htop nano
+remove             Menghapus paket yang sebelumnya diinstal oleh apt-local apt-local remove htop
+list               Menampilkan seluruh paket di repo                       apt-local list
+list --installed   Menampilkan paket yang sudah diinstal di lokal          apt-local list --installed
+env                Cek status & pasang Environment Variable ($PATH, dll)   apt-local env
 
 ⚙️ Konfigurasi (apt-local.conf)
 
@@ -41,13 +46,13 @@ Saat pertama kali dijalankan, script akan membuat file konfigurasi secara otomat
 Anda dapat mengedit file ini untuk mengatur Whitelist dan Blacklist.
 Ini, TOML
 
-# 1. Daftar Izin (Whitelist)
-# Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
-whitelist=*
+    # 1. Daftar Izin (Whitelist)
+    # Gunakan tanda bintang (*) untuk mengizinkan semua, atau array: whitelist=[htop, nano]
+    whitelist=*
 
-# 2. Daftar Blokir (Blacklist)
-# Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
-blacklist=[gcc, g++, make, libc6, systemd, apt, dpkg, docker.io, dll...]
+    # 2. Daftar Blokir (Blacklist)
+    # Paket yang tertulis di sini TIDAK AKAN BISA diinstal untuk melindungi OS host.
+    blacklist=[gcc, g++, make, libc6, systemd, apt, dpkg, docker.io, dll...]
 
 🛠️ Persiapan Environment (Penting!)
 
