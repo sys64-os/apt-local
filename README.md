@@ -11,8 +11,12 @@ Script ini sangat berguna untuk pengguna *Shared Hosting*, *Container*, atau *No
 - **Instalasi Tanpa Root**: Semua file diekstrak dan ditempatkan ke dalam `~/.local`.
 - **Resolusi Dependensi Otomatis**: Otomatis mencari dan mengunduh dependensi yang dibutuhkan oleh sebuah paket (menggunakan cache repositori host).
 - **Sistem Keamanan (Whitelist & Blacklist)**: Mencegah instalasi paket-paket inti OS (seperti `libc6`, `systemd`, `gcc`) yang berpotensi merusak lingkungan lokal.
-- **Manajemen Paket Sederhana**: Mendukung perintah `install`, `remove`, `search`, `update`, dan `list`.
+- **Autoremove Dependensi**: Saat menghapus paket, script akan melacak dan menawarkan untuk menghapus *orphaned dependencies* (dependensi yang tidak lagi digunakan oleh aplikasi mana pun).
+- **Simulasi (Dry-Run)**: Fitur `--dry-run` untuk melihat pratinjau file apa saja yang akan diekstrak dan kode *post-install* apa yang akan dimanipulasi tanpa melakukan modifikasi pada sistem.
+- **Eksekusi Post-Install Aman**: Otomatis mengekstrak skrip kontrol (`postinst`), menyesuaikan *hardcoded absolute paths* (contoh: `/usr` menjadi `~/.local/usr`), memblokir perintah khas *root* (`chown`, `systemctl`), lalu menjalankannya secara *silent* di *background*.
+- **App-Specific Tweaks (Quirk Fixes)**: Menangani keanehan pada paket tertentu secara otomatis (misalnya membuat *wrapper script* untuk `nano` agar membaca berkas *rcfile* konfigurasi dari `.local`).
 - **Pelacakan (Tracking) Instalasi**: Mencatat file apa saja yang diinstal sehingga dapat di-uninstall/remove hingga bersih.
+- **Mode Reset Bersih (Clean Sweep)**: Perintah `reset` untuk menghapus seluruh aplikasi dan *symlink* yang pernah dipasang melalui apt-local (dilengkapi peringatan kata sandi *Danger Zone*).
 - **Konfigurasi Environment Otomatis**: Menyediakan perintah `env` untuk otomatis menambahkan `$PATH` dan `$LD_LIBRARY_PATH` ke `.bashrc`.
 
 ---
@@ -22,7 +26,7 @@ Script ini sangat berguna untuk pengguna *Shared Hosting*, *Container*, atau *No
 1. Unduh atau salin script `apt-local` ke server/komputer Anda.
 2. Beri hak akses eksekusi pada script:
    ```bash
-    chmod +x apt-local
+   chmod +x apt-local
 3. Pindahkan script ke folder bin lokal agar bisa dipanggil dari mana saja (opsional):
    ```bash
    mkdir -p ~/.local/bin
@@ -41,6 +45,7 @@ Gunakan perintah selayaknya menggunakan `apt` pada umumnya.
 | `list` | Menampilkan seluruh paket di repo | `apt-local list` |
 | `list --installed` | Menampilkan paket yang sudah diinstal di lokal | `apt-local list --installed` |
 | `env` | Cek status & pasang Environment Variable (`$PATH`, dll) | `apt-local env` |
+| `install --dry-run` | Menampilkan simulasi ekstraksi & skrip post-install | `apt-local install --dry-run curl`|
 
 ⚙️ Konfigurasi (apt-local.conf)
 

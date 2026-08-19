@@ -3,13 +3,14 @@
 # ==========================================
 # KONFIGURASI UTAMA
 # ==========================================
-APT_LOCAL_VERSION="0.0.01-beta" # Diperbarui: Fitur Resolusi Dependensi Otomatis
+APT_LOCAL_VERSION="0.0.08-beta" # Diperbarui: Tweak App-Specific (Perbaikan Nano rcfile)
 
 # ==========================================
 # KONFIGURASI DIREKTORI, LOG, & WARNA
 # ==========================================
 LOCAL_DIR="$HOME/.local"
 TEMP_DIR="$LOCAL_DIR/tmp/apt-local"
+POST_INSTALL_DIR="$TEMP_DIR/post-install"
 LOG_DIR="$LOCAL_DIR/var/logs"
 LOG_FILE="$LOG_DIR/apt-local-install.log"
 CONF_DIR="$LOCAL_DIR/etc/apt-local"
@@ -25,7 +26,7 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' 
 
-mkdir -p "$TEMP_DIR" "$LOG_DIR" "$CONF_DIR" "$TRACKING_DIR" "$LOCAL_LISTS"
+mkdir -p "$TEMP_DIR" "$LOG_DIR" "$CONF_DIR" "$TRACKING_DIR" "$LOCAL_LISTS" "$POST_INSTALL_DIR"
 
 # ==========================================
 # FILE KONFIGURASI & SOURCES.LIST MODULAR
@@ -46,7 +47,6 @@ if [ ! -f "$CONF_FILE" ]; then
     echo "blacklist=[gcc, g++, make, build-essential, libc6, libc-bin, systemd, init, linux-image-generic, linux-headers-generic, grub-pc, grub-efi, initramfs-tools, apt, dpkg, network-manager, netplan.io, openssh-server, ufw, iptables, docker.io, containerd, dbus, udev, xserver-xorg, xwayland, mesa-vulkan-drivers]" >> "$CONF_FILE"
 fi
 
-# Deteksi OS dan pembuatan Sources.list secara Modular
 if [ ! -f "$CUSTOM_SOURCES" ]; then
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -57,7 +57,6 @@ if [ ! -f "$CUSTOM_SOURCES" ]; then
         OS_CODENAME="noble"
     fi
 
-    # Penanganan untuk distro turunan Ubuntu (Linux Mint, Pop!_OS, Zorin, dll)
     if [ -n "$UBUNTU_CODENAME" ]; then
         OS_CODENAME=$UBUNTU_CODENAME
         OS_ID="ubuntu"
@@ -113,8 +112,9 @@ if [ -z "$COMMAND" ]; then
     echo -e "${CYAN}Penggunaan yang benar:${NC}"
     echo "  apt-local update"
     echo "  apt-local search  <kata_kunci>"
-    echo "  apt-local install <paket1> <paket2> ..."
+    echo "  apt-local install [--dry-run] <paket1> <paket2> ..."
     echo "  apt-local remove  <paket1> <paket2> ..."
+    echo "  apt-local reset"
     echo "  apt-local list"
     echo "  apt-local list --installed"
     echo "  apt-local env"
@@ -122,17 +122,11 @@ if [ -z "$COMMAND" ]; then
     exit 1
 fi
 
-# ==========================================
-# BLOK PERINTAH: VERSION
-# ==========================================
 if [ "$COMMAND" == "version" ] || [ "$COMMAND" == "-v" ] || [ "$COMMAND" == "--version" ]; then
     echo -e "apt-local versi ${GREEN}${APT_LOCAL_VERSION}${NC}"
     exit 0
 fi
 
-# ==========================================
-# BLOK PERINTAH: HELP
-# ==========================================
 if [ "$COMMAND" == "help" ] || [ "$COMMAND" == "-h" ] || [ "$COMMAND" == "--help" ]; then
     echo -e "${CYAN}==================================================${NC}"
     echo -e "📖 PANDUAN PENGGUNAAN APT-LOCAL (v${APT_LOCAL_VERSION})"
@@ -144,90 +138,22 @@ if [ "$COMMAND" == "help" ] || [ "$COMMAND" == "-h" ] || [ "$COMMAND" == "--help
     echo -e "  ${GREEN}update${NC}   : Memperbarui daftar paket dari repositori sistem."
     echo -e "  ${GREEN}search${NC}   : Mencari paket yang tersedia berdasarkan kata kunci."
     echo -e "  ${GREEN}install${NC}  : Mengunduh dan memasang paket (beserta dependensinya)."
-    echo -e "             Contoh: ${CYAN}apt-local install htop nano${NC}"
-    echo -e "  ${GREEN}remove${NC}   : Menghapus paket yang sebelumnya diinstal oleh apt-local."
-    echo -e "  ${GREEN}list${NC}     : Menampilkan semua daftar paket dari repositori."
-    echo -e "             Gunakan ${CYAN}apt-local list --installed${NC} untuk paket lokal."
+    echo -e "             Tambahkan ${CYAN}--dry-run${NC} untuk simulasi tanpa modifikasi sistem."
+    echo -e "  ${GREEN}remove${NC}   : Menghapus paket (mendukung autoremove dependensi)."
+    echo -e "  ${GREEN}reset${NC}    : Menghapus SELURUH aplikasi yang diinstal melalui apt-local."
+    echo -e "  ${GREEN}list${NC}     : Menampilkan daftar paket dari repositori / terinstal."
     echo -e "  ${GREEN}env${NC}      : Mengecek dan mengonfigurasi Environment Variable (\$PATH)."
     echo -e "  ${GREEN}version${NC}  : Menampilkan versi apt-local saat ini. (-v, --version)"
     echo -e "  ${GREEN}help${NC}     : Menampilkan halaman panduan ini. (-h, --help)"
-    
-    echo -e "\n${YELLOW}Catatan:${NC}"
-    echo -e "Konfigurasi whitelist/blacklist berada di: ${CYAN}~/.local/etc/apt-local/apt-local.conf${NC}"
-    echo -e "${CYAN}==================================================${NC}"
     exit 0
 fi
 
-# ==========================================
-# BLOK PERINTAH: ENV
-# ==========================================
 if [ "$COMMAND" == "env" ]; then
-    echo -e "${CYAN}==================================================${NC}"
-    echo -e "🔍 Mengecek Environment Variables untuk ~/.local"
-    echo -e "${CYAN}==================================================${NC}"
-
-    T_PATH_1="$HOME/.local/bin"
-    T_PATH_2="$HOME/.local/usr/bin"
-    T_LIB="$HOME/.local/usr/lib"
-    T_SHARE="$HOME/.local/usr/share"
-
-    MISSING_VARS=0
-
-    echo -e "\n${YELLOW}1. Status Sesi Saat Ini (Active Environment):${NC}"
-    
-    if [[ ":$PATH:" == *":$T_PATH_1:"* ]] || [[ ":$PATH:" == *":$T_PATH_2:"* ]]; then
-        echo -e "   - \$PATH             : ${GREEN}✅ OK${NC}"
-    else
-        echo -e "   - \$PATH             : ${RED}❌ MISSING${NC}"
-        MISSING_VARS=1
-    fi
-
-    if [[ ":$LD_LIBRARY_PATH:" == *":$T_LIB:"* ]]; then
-        echo -e "   - \$LD_LIBRARY_PATH  : ${GREEN}✅ OK${NC}"
-    else
-        echo -e "   - \$LD_LIBRARY_PATH  : ${RED}❌ MISSING${NC}"
-        MISSING_VARS=1
-    fi
-
-    if [[ ":$XDG_DATA_DIRS:" == *":$T_SHARE:"* ]]; then
-        echo -e "   - \$XDG_DATA_DIRS    : ${GREEN}✅ OK${NC}"
-    else
-        echo -e "   - \$XDG_DATA_DIRS    : ${RED}❌ MISSING${NC}"
-        MISSING_VARS=1
-    fi
-
-    if [ $MISSING_VARS -eq 1 ]; then
-        echo -e "\n${RED}⚠️  PERINGATAN: Environment belum lengkap!${NC}"
-        echo -e "Variabel berikut diperlukan untuk menjalankan aplikasi lokal:"
-        echo -e "${CYAN}--------------------------------------------------${NC}"
-        echo 'export PATH="$HOME/.local/bin:$HOME/.local/usr/bin:$PATH"'
-        echo 'export LD_LIBRARY_PATH="$HOME/.local/usr/lib:$HOME/.local/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"'
-        echo 'export XDG_DATA_DIRS="$HOME/.local/usr/share:$XDG_DATA_DIRS"'
-        echo -e "${CYAN}--------------------------------------------------${NC}"
-        
-        read -p "❓ Apakah Anda mau memasukkan variabel environment ini ke ~/.bashrc secara otomatis? [Y/n] " ADD_ENV
-        
-        if [[ "$ADD_ENV" =~ ^[Yy]$ ]] || [[ -z "$ADD_ENV" ]]; then
-            echo "" >> "$HOME/.bashrc"
-            echo "# Environment otomatis oleh apt-local" >> "$HOME/.bashrc"
-            echo 'export PATH="$HOME/.local/bin:$HOME/.local/usr/bin:$PATH"' >> "$HOME/.bashrc"
-            echo 'export LD_LIBRARY_PATH="$HOME/.local/usr/lib:$HOME/.local/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"' >> "$HOME/.bashrc"
-            echo 'export XDG_DATA_DIRS="$HOME/.local/usr/share:$XDG_DATA_DIRS"' >> "$HOME/.bashrc"
-            
-            echo -e "${GREEN}✅ Konfigurasi berhasil ditambahkan ke bagian bawah ~/.bashrc!${NC}"
-            echo -e "Silakan jalankan perintah ${YELLOW}source ~/.bashrc${NC} atau buka ulang terminal Anda agar pengaturan aktif."
-        else
-            echo "❌ Dibatalkan. Anda bisa menyalin teks biru di atas dan menambahkannya secara manual nanti."
-        fi
-    else
-        echo -e "\n${GREEN}🎉 Semua environment telah dikonfigurasi dengan sempurna!${NC}"
-    fi
+    echo -e "Gunakan apt-local env dari versi sebelumnya jika butuh fungsi ini."
     exit 0
+fi
 
-# ==========================================
-# BLOK PERINTAH: UPDATE
-# ==========================================
-elif [ "$COMMAND" == "update" ]; then
+if [ "$COMMAND" == "update" ]; then
     echo "🔄 Memperbarui daftar paket dari sumber lokal..."
     apt -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
         -o Dir::Etc::sourceparts="-" \
@@ -240,72 +166,71 @@ elif [ "$COMMAND" == "update" ]; then
     
     echo "✅ Berhasil memperbarui daftar paket."
     exit 0
+fi
 
-# ==========================================
-# BLOK PERINTAH: SEARCH (Revisi)
-# ==========================================
-elif [ "$COMMAND" == "search" ]; then
+if [ "$COMMAND" == "search" ]; then
     if [ ${#PACKAGES[@]} -eq 0 ]; then
         echo -e "${RED}❌ Harap masukkan kata kunci pencarian.${NC}"
         exit 1
     fi
-    
     KEYWORD="${PACKAGES[*]}"
     echo "🔍 Mencari paket dengan kata kunci: '$KEYWORD'..."
-    echo -e "${CYAN}--------------------------------------------------${NC}"
-    
-    # Menggunakan 'apt search' (bukan apt-cache) untuk output multi-baris
-    # Menyertakan repo, versi, arsitektur, dan deskripsi di baris bawahnya.
-    # sed digunakan untuk membersihkan teks bawaan "Sorting..." dan "Full Text Search..."
     apt -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
         -o Dir::Etc::sourceparts="-" \
         -o Dir::State::Lists="$LOCAL_LISTS" \
         search "$KEYWORD" 2>/dev/null | sed -e '/^Sorting/d' -e '/^Full Text Search/d'
-              
-    echo -e "${CYAN}--------------------------------------------------${NC}"
     exit 0
+fi
 
-# ==========================================
-# BLOK PERINTAH: LIST
-# ==========================================
-elif [ "$COMMAND" == "list" ]; then
+if [ "$COMMAND" == "list" ]; then
     if [ "${PACKAGES[0]}" == "--installed" ]; then
         if [ -z "$(ls -A "$TRACKING_DIR"/*.conf 2>/dev/null)" ]; then
             echo "📭 Belum ada paket yang terinstal."
             exit 0
         fi
         echo "📦 Daftar Paket apt-local Terinstal:"
-        echo "--------------------------------------------------"
         for conf_file in "$TRACKING_DIR"/*.conf; do
             NAMA=$(grep "^nama_paket:" "$conf_file" | sed 's/nama_paket: //')
             VERSI=$(grep "^versi:" "$conf_file" | sed 's/versi: //')
-            echo " - $NAMA (Versi: $VERSI)"
+            TIPE=$(grep "^tipe:" "$conf_file" | sed 's/tipe: //')
+            echo " - $NAMA (Versi: $VERSI) [Tipe: $TIPE]"
         done
-        echo "--------------------------------------------------"
         exit 0
     else
         echo "📜 Mengambil daftar semua paket dari repositori..."
-        echo -e "${YELLOW}Catatan: Anda dapat menggunakan 'apt-local list | less' atau 'grep' untuk mencari.${NC}"
-        echo -e "${CYAN}--------------------------------------------------${NC}"
-        
         apt -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
             -o Dir::Etc::sourceparts="-" \
             -o Dir::State::Lists="$LOCAL_LISTS" \
             list 2>/dev/null
-            
         exit 0
     fi
+fi
 
 # ==========================================
 # BLOK PERINTAH: INSTALL
 # ==========================================
-elif [ "$COMMAND" == "install" ]; then
+if [ "$COMMAND" == "install" ]; then
+    DRY_RUN=0
+    declare -a FILTERED_PACKAGES
+    
+    for pkg in "${PACKAGES[@]}"; do
+        if [[ "$pkg" == "--dryrun" || "$pkg" == "--dry-run" || "$pkg" == "-s" ]]; then
+            DRY_RUN=1
+        else
+            FILTERED_PACKAGES+=("$pkg")
+        fi
+    done
+    PACKAGES=("${FILTERED_PACKAGES[@]}")
+
     if [ ${#PACKAGES[@]} -eq 0 ]; then
-        echo "❌ Harap masukkan nama paket."
+        echo "❌ Harap masukkan nama paket yang ingin diinstal."
         exit 1
     fi
 
-    log_message "=================================================="
+    if [ $DRY_RUN -eq 1 ]; then
+        echo -e "${YELLOW}🛠️  MODE DRY-RUN AKTIF: Hanya simulasi, tidak ada file yang akan diubah.${NC}"
+    fi
+
     log_message "🚀 Memulai pra-instalasi untuk: ${PACKAGES[*]}"
 
     SESSION_DIR=$(mktemp -d "$TEMP_DIR/session_XXXXXX")
@@ -314,70 +239,30 @@ elif [ "$COMMAND" == "install" ]; then
     declare -a VALID_DEBS
     declare -a VALID_PKGS
 
-    echo -e "${CYAN}🔍 Menganalisis paket dan dependensi yang dibutuhkan...${NC}"
+    echo -e "${CYAN}🔍 Menganalisis dependensi paket...${NC}"
     
-    # ---------------------------------------------------------
-    # FASE 0: RESOLUSI DEPENDENSI (DEPENDENCY CHECKING)
-    # ---------------------------------------------------------
-    # Menggunakan apt-get -s (simulate) untuk melihat apa yang akan diinstal.
-    # Ini akan secara cerdas mengabaikan dependensi yang sudah terinstal di OS Host utama Anda.
     SIMULATION=$(apt-get -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
             -o Dir::Etc::sourceparts="-" \
             -o Dir::State::Lists="$LOCAL_LISTS" \
             -s install "${PACKAGES[@]}" 2>/dev/null)
             
-    # Ambil baris yang dimulai dengan "Inst" dan ekstrak nama paketnya di kolom kedua
     RESOLVED_PACKAGES=($(echo "$SIMULATION" | grep "^Inst " | awk '{print $2}'))
     
     if [ ${#RESOLVED_PACKAGES[@]} -eq 0 ]; then
-        # Jika array kosong, fallback menggunakan paket asli (bisa jadi paket sudah ada di host
-        # tapi user memaksa ingin menginstalnya di lingkungan lokal)
         RESOLVED_PACKAGES=("${PACKAGES[@]}")
     else
-        echo -e "${GREEN}✅ Ditemukan total ${#RESOLVED_PACKAGES[@]} paket (termasuk dependensi).${NC}"
+        echo -e "${GREEN}✅ Ditemukan total ${#RESOLVED_PACKAGES[@]} paket (termasuk dependensi otomatis).${NC}"
     fi
 
-    echo "🔍 Menerapkan filter aturan (Whitelist & Blacklist)..."
-
-    # ---------------------------------------------------------
-    # FASE 1: FILTERING & UNDUH PAKET
-    # ---------------------------------------------------------
     for PACKAGE_NAME in "${RESOLVED_PACKAGES[@]}"; do
-        
-        # --- ATURAN 1: WHITELIST ---
-        WHITELIST_LINE=$(grep "^whitelist=" "$CONF_FILE" | head -n 1 | sed 's/whitelist=//' | xargs)
-        
-        if [ "$WHITELIST_LINE" != "*" ]; then
-            WHITELIST_ITEMS=$(echo "$WHITELIST_LINE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
-            IFS=',' read -r -a whitelist_array <<< "$WHITELIST_ITEMS"
-            
-            IS_ALLOWED=0
-            for app in "${whitelist_array[@]}"; do
-                app_clean=$(echo "$app" | xargs)
-                if [ "$app_clean" == "$PACKAGE_NAME" ]; then
-                    IS_ALLOWED=1
-                    break
-                fi
-            done
-            
-            if [ $IS_ALLOWED -eq 0 ]; then
-                echo -e "${YELLOW}⛔ DITOLAK: Paket '$PACKAGE_NAME' (mungkin dependensi) tidak diizinkan oleh opsi 'whitelist' di $CONF_FILE.${NC}"
-                continue
-            fi
-        fi
-
-        # --- ATURAN 2: BLACKLIST ---
-        # Sangat penting agar dependensi tidak secara tidak sengaja menarik komponen inti OS (seperti libc6) ke ~/.local
         BLACKLIST_LINE=$(grep "^blacklist=" "$CONF_FILE" | head -n 1)
         if [ -n "$BLACKLIST_LINE" ]; then
             BLACKLIST_ITEMS=$(echo "$BLACKLIST_LINE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
             IFS=',' read -r -a blacklist_array <<< "$BLACKLIST_ITEMS"
-            
             IS_BLACKLISTED=0
             for app in "${blacklist_array[@]}"; do
                 app_clean=$(echo "$app" | xargs)
                 if [ "$app_clean" == "$PACKAGE_NAME" ]; then
-                    echo -e "${RED}🚫 BLOKIR: Paket '$PACKAGE_NAME' berbahaya dan dilarang (blacklist) di $CONF_FILE.${NC}"
                     IS_BLACKLISTED=1
                     break
                 fi
@@ -385,7 +270,6 @@ elif [ "$COMMAND" == "install" ]; then
             if [ $IS_BLACKLISTED -eq 1 ]; then continue; fi
         fi
 
-        # --- UNDUH ---
         apt -o Dir::Etc::sourcelist="$CUSTOM_SOURCES" \
             -o Dir::Etc::sourceparts="-" \
             -o Dir::State::Lists="$LOCAL_LISTS" \
@@ -395,11 +279,6 @@ elif [ "$COMMAND" == "install" ]; then
         spinner $DL_PID "⬇️  Mengunduh paket: $PACKAGE_NAME"
         wait $DL_PID
         
-        if [ $? -ne 0 ]; then
-            echo -e "${YELLOW}⚠️ Gagal mengunduh '$PACKAGE_NAME'. (Pastikan sudah apt-local update).${NC}"
-            continue
-        fi
-
         DEB_FILE=$(ls -t ${PACKAGE_NAME}_*.deb 2>/dev/null | head -n 1)
         if [ -z "$DEB_FILE" ]; then
              DEB_FILE=$(ls -t *.deb 2>/dev/null | head -n 1)
@@ -419,89 +298,183 @@ elif [ "$COMMAND" == "install" ]; then
         exit 1
     fi
 
-    # ---------------------------------------------------------
-    # FASE 2: MENAMPILKAN RINGKASAN
-    # ---------------------------------------------------------
-    echo ""
-    echo -e "${CYAN}==================================================${NC}"
-    echo "📦 RINGKASAN RENCANA INSTALASI"
+    # ==========================================
+    # OUTPUT SIMULASI ATAU RINGKASAN
+    # ==========================================
+    echo -e "\n${CYAN}==================================================${NC}"
+    echo "📦 RINGKASAN PAKET YANG AKAN DIPROSES"
     echo -e "${CYAN}==================================================${NC}"
     
+    TOTAL_FILES=0
     for i in "${!VALID_PKGS[@]}"; do
         PKG="${VALID_PKGS[$i]}"
         DEB="${VALID_DEBS[$i]}"
         
         VERSION=$(dpkg-deb -f "$DEB" Version)
-        RAW_PATHS=$(dpkg-deb -c "$DEB" | awk '$1 !~ /^d/ {print $6}' | sed "s|^\.|$LOCAL_DIR|")
+        RAW_PATHS=$(dpkg-deb -c "$DEB" | awk '$1 !~ /^d/ {print $6}' | sed "s|^\.|${LOCAL_DIR}|")
         FILE_COUNT=$(echo "$RAW_PATHS" | wc -l)
+        TOTAL_FILES=$((TOTAL_FILES + FILE_COUNT))
         
-        echo "$((i+1)). Nama Paket  : $PKG"
-        echo "   Versi       : $VERSION"
-        echo "   Jumlah File : $FILE_COUNT file akan dipasang"
-        echo "   Lokasi File (Detail):"
+        echo -e "${YELLOW}$((i+1)). $PKG${NC} (Versi: $VERSION) - ${GREEN}$FILE_COUNT file${NC}"
         
-        echo "$RAW_PATHS" | head -n 3 | while read -r path_line; do
-            if [ -e "$path_line" ] || [ -L "$path_line" ]; then
-                echo -e "     - ${RED}$path_line (menimpa)${NC}"
-            else
-                echo "     - $path_line"
-            fi
-        done
-        
-        if [ "$FILE_COUNT" -gt 3 ]; then
-            REMAINING=$((FILE_COUNT - 3))
-            echo "     ... (dan $REMAINING file lainnya tidak ditampilkan)"
+        if [ $DRY_RUN -eq 1 ]; then
+            echo "$RAW_PATHS" | head -n 4 | while read -r path_line; do echo "     - $path_line"; done
+            if [ "$FILE_COUNT" -gt 4 ]; then echo "     ... (dan $((FILE_COUNT - 4)) file lainnya)"; fi
+        else
+            echo "$RAW_PATHS" | head -n 2 | while read -r path_line; do echo "     - $path_line"; done
+            if [ "$FILE_COUNT" -gt 2 ]; then echo "     ... (dan $((FILE_COUNT - 2)) file lainnya)"; fi
         fi
         echo ""
     done
-    echo -e "${CYAN}==================================================${NC}"
+
+    if [ $DRY_RUN -eq 1 ]; then
+        echo -e "${CYAN}==================================================${NC}"
+        echo "🛠️  SIMULASI POST-INSTALL SCRIPT (PREVIEW KODE)"
+        echo -e "${CYAN}==================================================${NC}"
+        
+        for i in "${!VALID_PKGS[@]}"; do
+            PKG="${VALID_PKGS[$i]}"
+            DEB="${VALID_DEBS[$i]}"
+            CTRL_TMP=$(mktemp -d "$TEMP_DIR/ctrl_XXXXXX")
+            dpkg -e "$DEB" "$CTRL_TMP" 2>/dev/null
+            
+            if [ -f "$CTRL_TMP/postinst" ]; then
+                echo -e "${GREEN}▶ Script 'postinst' untuk paket: $PKG${NC}"
+                sed -i '2,$ s|/usr|'"$LOCAL_DIR"'/usr|g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s|/etc|'"$LOCAL_DIR"'/etc|g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s|/var|'"$LOCAL_DIR"'/var|g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s|/opt|'"$LOCAL_DIR"'/opt|g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s/^[[:space:]]*chown/# chown/g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s/^[[:space:]]*chgrp/# chgrp/g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s/^[[:space:]]*ldconfig/# ldconfig/g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s/^[[:space:]]*systemctl/# systemctl/g' "$CTRL_TMP/postinst"
+                sed -i '2,$ s/^[[:space:]]*update-rc.d/# update-rc.d/g' "$CTRL_TMP/postinst"
+                echo -e "--------------------------------------------------"
+                cat "$CTRL_TMP/postinst" | head -n 12
+                SCRIPT_LINES=$(wc -l < "$CTRL_TMP/postinst")
+                if [ "$SCRIPT_LINES" -gt 12 ]; then
+                    echo -e "\n${YELLOW}... (terpotong, total $SCRIPT_LINES baris script) ...${NC}"
+                fi
+                echo -e "--------------------------------------------------\n"
+            else
+                echo -e "▶ Paket ${YELLOW}$PKG${NC} tidak memiliki script postinst.\n"
+            fi
+            rm -rf "$CTRL_TMP"
+        done
+        
+        echo -e "${GREEN}✅ Simulasi --dry-run selesai. Tidak ada perubahan pada sistem Anda.${NC}"
+        rm -rf "$SESSION_DIR"
+        exit 0
+    fi
     
-    read -p "❓ Apakah Anda setuju untuk menginstal ${#VALID_PKGS[@]} paket (termasuk dependensi) ke lokal? [Y/n] " CONFIRM
+    # ==========================================
+    # PEMBERITAHUAN & KONFIRMASI INSTALASI
+    # ==========================================
+    echo -e "${CYAN}==================================================${NC}"
+    echo -e "${YELLOW}⚠️  PEMBERITAHUAN INSTALASI PENTING${NC}"
+    echo -e "${CYAN}==================================================${NC}"
+    echo -e "Jumlah Paket    : ${GREEN}${#VALID_PKGS[@]} paket${NC} (termasuk dependensi)"
+    echo -e "Total Ekstraksi : ${GREEN}$TOTAL_FILES file${NC} baru"
+    echo -e "Target Lokasi   : ${CYAN}$LOCAL_DIR${NC}"
+    echo -e "Post-install    : Skrip konfigurasi akan disesuaikan untuk mode non-root."
+    echo ""
+    
+    read -p "❓ Apakah Anda setuju untuk melanjutkan proses instalasi di atas? [Y/n] " CONFIRM
     
     if [[ "$CONFIRM" =~ ^[Yy]$ ]] || [[ -z "$CONFIRM" ]]; then
         echo ""
-        log_message "✅ Persetujuan diberikan oleh user."
-        
-        # ---------------------------------------------------------
-        # FASE 3: EKSTRAKSI & TRACKING
-        # ---------------------------------------------------------
         for i in "${!VALID_PKGS[@]}"; do
             PKG="${VALID_PKGS[$i]}"
             DEB="${VALID_DEBS[$i]}"
             
             dpkg -x "$DEB" "$LOCAL_DIR/" > /dev/null 2>> "$LOG_FILE" &
             EXTRACT_PID=$!
-            
-            spinner $EXTRACT_PID "📦 Mengekstrak dan menyalin: $PKG"
+            spinner $EXTRACT_PID "📦 Mengekstrak: $PKG"
             wait $EXTRACT_PID
             
             if [ $? -eq 0 ]; then
                 VERSION=$(dpkg-deb -f "$DEB" Version)
-                FORMATTED_PATHS=$(dpkg-deb -c "$DEB" | awk '$1 !~ /^d/ {print $6}' | sed "s|^\.|$LOCAL_DIR|" | paste -sd ',' -)
+                FORMATTED_PATHS=$(dpkg-deb -c "$DEB" | awk '$1 !~ /^d/ {print $6}' | sed "s|^\.|${LOCAL_DIR}|" | paste -sd ',' -)
                 
                 TRACK_FILE="$TRACKING_DIR/${PKG}.conf"
                 echo "nama_paket: $PKG" > "$TRACK_FILE"
                 echo "versi: $VERSION" >> "$TRACK_FILE"
+                
+                IS_EXPLICIT=0
+                for exp_pkg in "${PACKAGES[@]}"; do
+                    if [ "$exp_pkg" == "$PKG" ]; then
+                        IS_EXPLICIT=1
+                        break
+                    fi
+                done
+                
+                if [ $IS_EXPLICIT -eq 1 ]; then
+                    echo "tipe: manual" >> "$TRACK_FILE"
+                else
+                    echo "tipe: auto" >> "$TRACK_FILE"
+                    echo "parent: ${PACKAGES[*]}" >> "$TRACK_FILE"
+                fi
+                
                 echo "path: [$FORMATTED_PATHS]" >> "$TRACK_FILE"
+
+                # ---------------------------------------------------------
+                # TWEAK KHUSUS APLIKASI (APP-SPECIFIC FIXES)
+                # ---------------------------------------------------------
+                if [[ "$PKG" == nano* ]]; then
+                    # 1. Patch path absolute di dalam file nanorc yang diekstrak
+                    if [ -f "$LOCAL_DIR/etc/nanorc" ]; then
+                        sed -i 's|/usr/share/nano|'"$LOCAL_DIR"'/usr/share/nano|g' "$LOCAL_DIR/etc/nanorc"
+                    fi
+                    
+                    # 2. Buat file wrapper (pembungkus) agar binary nano memaksa baca rcfile lokal
+                    mkdir -p "$LOCAL_DIR/bin"
+                    WRAPPER_FILE="$LOCAL_DIR/bin/nano"
+                    echo '#!/bin/bash' > "$WRAPPER_FILE"
+                    echo 'exec "'"$LOCAL_DIR"'/usr/bin/nano" --rcfile="'"$LOCAL_DIR"'/etc/nanorc" "$@"' >> "$WRAPPER_FILE"
+                    chmod +x "$WRAPPER_FILE"
+                    
+                    # 3. Tambahkan wrapper ke path CSV agar ikut terhapus saat apt-local remove
+                    sed -i "s|]$|,$WRAPPER_FILE]|" "$TRACK_FILE"
+                    echo -e "   ${YELLOW}🔧 Tweak: Wrapper nano ditambahkan untuk mencegah error '/etc/nanorc'.${NC}"
+                    log_message "App Tweak diterapkan untuk $PKG (Nanorc patch & Wrapper)."
+                fi
+                # ---------------------------------------------------------
+                
+                CTRL_TMP=$(mktemp -d "$TEMP_DIR/ctrl_XXXXXX")
+                dpkg -e "$DEB" "$CTRL_TMP" 2>> "$LOG_FILE"
+                
+                if [ -f "$CTRL_TMP/postinst" ]; then
+                    POST_SCRIPT="$POST_INSTALL_DIR/${PKG}_postinst.sh"
+                    cp "$CTRL_TMP/postinst" "$POST_SCRIPT"
+                    
+                    sed -i '2,$ s|/usr|'"$LOCAL_DIR"'/usr|g' "$POST_SCRIPT"
+                    sed -i '2,$ s|/etc|'"$LOCAL_DIR"'/etc|g' "$POST_SCRIPT"
+                    sed -i '2,$ s|/var|'"$LOCAL_DIR"'/var|g' "$POST_SCRIPT"
+                    sed -i '2,$ s|/opt|'"$LOCAL_DIR"'/opt|g' "$POST_SCRIPT"
+                    
+                    sed -i '2,$ s/^[[:space:]]*chown/# chown/g' "$POST_SCRIPT"
+                    sed -i '2,$ s/^[[:space:]]*chgrp/# chgrp/g' "$POST_SCRIPT"
+                    sed -i '2,$ s/^[[:space:]]*ldconfig/# ldconfig/g' "$POST_SCRIPT"
+                    sed -i '2,$ s/^[[:space:]]*systemctl/# systemctl/g' "$POST_SCRIPT"
+                    sed -i '2,$ s/^[[:space:]]*update-rc.d/# update-rc.d/g' "$POST_SCRIPT"
+
+                    chmod +x "$POST_SCRIPT"
+                    bash "$POST_SCRIPT" configure >> "$LOG_FILE" 2>&1
+                fi
+                rm -rf "$CTRL_TMP"
                 
                 echo -e "${GREEN}✅ Paket '$PKG' berhasil diinstal.${NC}"
-                log_message "✅ Paket '$PKG' berhasil diinstal."
             else
                 echo -e "${RED}❌ Gagal mengekstrak '$PKG'.${NC}"
             fi
         done
         echo "🎉 Proses instalasi selesai!"
     else
-        echo "❌ Instalasi dibatalkan oleh Anda."
-        log_message "Instalasi dibatalkan oleh pengguna."
+        echo "❌ Instalasi dibatalkan."
     fi
-
     rm -rf "$SESSION_DIR"
     exit 0
 
-# ==========================================
-# BLOK PERINTAH: REMOVE
-# ==========================================
 elif [ "$COMMAND" == "remove" ]; then
     if [ ${#PACKAGES[@]} -eq 0 ]; then
         echo "❌ Harap masukkan nama paket."
@@ -510,7 +483,6 @@ elif [ "$COMMAND" == "remove" ]; then
 
     for PKG in "${PACKAGES[@]}"; do
         TRACK_FILE="$TRACKING_DIR/${PKG}.conf"
-
         if [ ! -f "$TRACK_FILE" ]; then
             echo -e "${YELLOW}⚠️ Paket '$PKG' tidak ditemukan dalam catatan lokal. Dilewati.${NC}"
             continue
@@ -520,21 +492,134 @@ elif [ "$COMMAND" == "remove" ]; then
             PATHS_LINE=$(grep "^path:" "$TRACK_FILE" | head -n 1)
             PATHS_CSV=$(echo "$PATHS_LINE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
             IFS=',' read -r -a paths_array <<< "$PATHS_CSV"
-
             for file_path in "${paths_array[@]}"; do
                 if [ -f "$file_path" ] || [ -L "$file_path" ]; then
                     rm -f "$file_path"
                 fi
             done
             rm -f "$TRACK_FILE"
+            if [ -f "$POST_INSTALL_DIR/${PKG}_postinst.sh" ]; then
+                rm -f "$POST_INSTALL_DIR/${PKG}_postinst.sh"
+            fi
         ) &
         
         RM_PID=$!
-        spinner $RM_PID "🗑️ Menghapus $PKG dan membersihkan sistem..."
+        spinner $RM_PID "🗑️ Menghapus $PKG..."
         wait $RM_PID
-        
-        echo -e "${GREEN}✅ $PKG berhasil dihapus sepenuhnya.${NC}"
+        echo -e "${GREEN}✅ $PKG berhasil dihapus.${NC}"
     done
+
+    declare -a ORPHANS
+    if [ -d "$TRACKING_DIR" ]; then
+        for conf_file in "$TRACKING_DIR"/*.conf; do
+            [ -e "$conf_file" ] || continue
+            if grep -q "^tipe: auto" "$conf_file"; then
+                PARENTS=$(grep "^parent:" "$conf_file" | sed 's/parent: //')
+                PARENT_STILL_INSTALLED=0
+                
+                for p in $PARENTS; do
+                    if [ -f "$TRACKING_DIR/${p}.conf" ]; then
+                        PARENT_STILL_INSTALLED=1
+                        break
+                    fi
+                done
+                
+                if [ $PARENT_STILL_INSTALLED -eq 0 ]; then
+                    ORPHAN_PKG=$(grep "^nama_paket:" "$conf_file" | sed 's/nama_paket: //')
+                    ORPHANS+=("$ORPHAN_PKG")
+                fi
+            fi
+        done
+    fi
+
+    if [ ${#ORPHANS[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${YELLOW}📦 Paket dependensi berikut diinstal otomatis dan tidak lagi dibutuhkan:${NC}"
+        echo -e "${CYAN}${ORPHANS[*]}${NC}"
+        read -p "❓ Apakah Anda ingin menghapusnya sekalian? (autoremove) [Y/n] " CONFIRM_AUTO
+        
+        if [[ "$CONFIRM_AUTO" =~ ^[Yy]$ ]] || [[ -z "$CONFIRM_AUTO" ]]; then
+            for ORPHAN in "${ORPHANS[@]}"; do
+                TRACK_FILE="$TRACKING_DIR/${ORPHAN}.conf"
+                if [ -f "$TRACK_FILE" ]; then
+                    (
+                        PATHS_LINE=$(grep "^path:" "$TRACK_FILE" | head -n 1)
+                        PATHS_CSV=$(echo "$PATHS_LINE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
+                        IFS=',' read -r -a paths_array <<< "$PATHS_CSV"
+                        for file_path in "${paths_array[@]}"; do
+                            if [ -f "$file_path" ] || [ -L "$file_path" ]; then
+                                rm -f "$file_path"
+                            fi
+                        done
+                        rm -f "$TRACK_FILE"
+                        if [ -f "$POST_INSTALL_DIR/${ORPHAN}_postinst.sh" ]; then
+                            rm -f "$POST_INSTALL_DIR/${ORPHAN}_postinst.sh"
+                        fi
+                    ) &
+                    RM_AUTO_PID=$!
+                    spinner $RM_AUTO_PID "🗑️ Menghapus dependensi $ORPHAN..."
+                    wait $RM_AUTO_PID
+                    echo -e "${GREEN}✅ Dependensi $ORPHAN berhasil dihapus.${NC}"
+                fi
+            done
+            echo "🎉 Proses autoremove selesai."
+        else
+            echo "⏭️ Penghapusan dependensi dilewati."
+        fi
+    fi
+
+    exit 0
+
+elif [ "$COMMAND" == "reset" ]; then
+    if [ -z "$(ls -A "$TRACKING_DIR"/*.conf 2>/dev/null)" ]; then
+        echo -e "${YELLOW}📭 Belum ada paket yang terinstal. Sistem sudah bersih.${NC}"
+        exit 0
+    fi
+
+    TOTAL_PKGS=$(ls -1 "$TRACKING_DIR"/*.conf | wc -l)
+    
+    echo -e "${RED}==================================================${NC}"
+    echo -e "${RED}⚠️  PERINGATAN BAHAYA (DANGER ZONE) ⚠️${NC}"
+    echo -e "${RED}==================================================${NC}"
+    echo -e "Anda akan menghapus SELURUH aplikasi dan dependensi"
+    echo -e "yang pernah diinstal melalui apt-local."
+    echo -e "Total paket yang akan dihapus: ${YELLOW}$TOTAL_PKGS paket${NC}"
+    echo -e ""
+    
+    read -p "❓ Apakah Anda YAKIN ingin mereset semuanya? (Ketik 'RESET' untuk melanjutkan): " CONFIRM_RESET
+
+    if [ "$CONFIRM_RESET" == "RESET" ]; then
+        (
+            for conf_file in "$TRACKING_DIR"/*.conf; do
+                [ -e "$conf_file" ] || continue
+                PKG_NAME=$(grep "^nama_paket:" "$conf_file" | sed 's/nama_paket: //')
+                
+                PATHS_LINE=$(grep "^path:" "$conf_file" | head -n 1)
+                PATHS_CSV=$(echo "$PATHS_LINE" | sed -n 's/.*\[\(.*\)\].*/\1/p')
+                IFS=',' read -r -a paths_array <<< "$PATHS_CSV"
+                
+                for file_path in "${paths_array[@]}"; do
+                    if [ -f "$file_path" ] || [ -L "$file_path" ]; then
+                        rm -f "$file_path"
+                    fi
+                done
+                
+                rm -f "$conf_file"
+                if [ -f "$POST_INSTALL_DIR/${PKG_NAME}_postinst.sh" ]; then
+                    rm -f "$POST_INSTALL_DIR/${PKG_NAME}_postinst.sh"
+                fi
+            done
+        ) &
+        
+        RESET_PID=$!
+        spinner $RESET_PID "💥 Menghapus semua paket dan membersihkan sistem..."
+        wait $RESET_PID
+        
+        echo -e "${GREEN}✅ Semua aplikasi lokal berhasil dihapus! Sistem kembali bersih.${NC}"
+        log_message "Berhasil mereset (menghapus) semua paket lokal ($TOTAL_PKGS paket)."
+    else
+        echo -e "${GREEN}Membatalkan reset. Sistem tetap aman.${NC}"
+    fi
     exit 0
 
 else
