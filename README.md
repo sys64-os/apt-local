@@ -75,20 +75,20 @@ Script akan mengecek kelengkapan `$PATH, $LD_LIBRARY_PATH, dan $XDG_DATA_DIRS`. 
 
 📂 Struktur Direktori
 
-Semua aktivitas apt-local terisolasi pada folder `~/.local`.
+Semua aktivitas apt-local terisolasi pada folder ~/.local.
 
 > ~/.local/bin & ~/.local/usr/bin : Tempat aplikasi (.exe/binary) berada.
-> 
 > ~/.local/usr/lib : Tempat library (.so) berada.
-> 
-> ~/.local/var/lib/apt-local/deb-install : Tempat file tracking instalasi (.conf).
-
+> ~/.local/etc/apt-local/ : Tempat berkas konfigurasi apt-local.
+> ~/.local/var/lib/apt-local/deb-install : Tempat file tracking instalasi dan dependensi otomatis (.conf).
 > ~/.local/tmp/apt-local : Folder temporary untuk mengunduh .deb sebelum diekstrak.
+> ~/.local/tmp/apt-local/post-install : Folder untuk menyimpan dan mengeksekusi modified script postinst.
+> ~/.local/var/logs/ : Menyimpan log instalasi & output error silent post-install di apt-local-install.log.
 
 ⚠️ Peringatan & Keterbatasan
 
-> Bukan Pengganti APT Asli: Script ini menggunakan dpkg -x (ekstrak) dan tidak menjalankan skrip pre/post instalasi (preinst/postinst) dari paket Debian. Paket > yang membutuhkan setup daemon atau system service mungkin tidak berjalan sempurna.
-> 
+> Bukan Pengganti APT Asli: Script ini adalah wrapper berbasis user-space. Meskipun sudah memiliki fitur modifikasi skrip kontrol (menggunakan sed), paket yang membutuhkan modifikasi kernel (kernel modules), setup daemon systemd, atau pembuatan user group khusus pada tingkat sistem operasi utama mungkin tidak berjalan sempurna.
+
 > Kompabilitas C-Library: Jika paket yang Anda instal membutuhkan versi libc6 yang lebih baru dari yang ada di OS Utama (Host), aplikasi tersebut mungkin akan mengalami Segmentation Fault.
 
-`Lisensi: MIT License (Gunakan dengan risiko ditanggung sendiri).`
+Lisensi: MIT License (Gunakan dengan risiko ditanggung sendiri).
