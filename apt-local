@@ -118,7 +118,7 @@ if [ -z "$COMMAND" ]; then
     echo "  apt-local list"
     echo "  apt-local list --installed"
     echo "  apt-local env"
-    echo "Ketik ${YELLOW}apt-local help${NC} untuk melihat panduan lengkap."
+    echo "Ketik ${GREEN}apt-local help${NC} untuk melihat panduan lengkap."
     exit 1
 fi
 
