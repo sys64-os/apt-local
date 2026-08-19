@@ -78,11 +78,17 @@ Script akan mengecek kelengkapan `$PATH, $LD_LIBRARY_PATH, dan $XDG_DATA_DIRS`. 
 Semua aktivitas apt-local terisolasi pada folder ~/.local.
 
 > ~/.local/bin & ~/.local/usr/bin : Tempat aplikasi (.exe/binary) berada.
+
 > ~/.local/usr/lib : Tempat library (.so) berada.
+
 > ~/.local/etc/apt-local/ : Tempat berkas konfigurasi apt-local.
+
 > ~/.local/var/lib/apt-local/deb-install : Tempat file tracking instalasi dan dependensi otomatis (.conf).
+
 > ~/.local/tmp/apt-local : Folder temporary untuk mengunduh .deb sebelum diekstrak.
+
 > ~/.local/tmp/apt-local/post-install : Folder untuk menyimpan dan mengeksekusi modified script postinst.
+
 > ~/.local/var/logs/ : Menyimpan log instalasi & output error silent post-install di apt-local-install.log.
 
 ⚠️ Peringatan & Keterbatasan
